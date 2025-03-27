@@ -4,7 +4,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global Styles */
 body {
-  background-color: #f8f9fa;
-  font-family: Arial, sans-serif;
+  font-family: 'Arial', sans-serif;
+  font-size: 18px;
+  background-color: #5da5bd;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3 {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.container {
+  width: 80%;
+  max-width: 1200px;
+  margin: auto;
+  padding: 20px;
+  background: white;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
 }
