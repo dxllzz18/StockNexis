@@ -1,19 +1,15 @@
 "use client";
 import {
-  Edit // Import the Edit icon
-  ,
-
-
+  ChevronDown,
+  ChevronUp,
+  Edit,
   Home,
   Layers,
-  LineChart,
   Package,
   Package2,
   PlusCircle,
   Search,
-  Settings,
-  ShoppingCart,
-  Users
+  Settings
 } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
@@ -27,6 +23,9 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [expandedSearchProductId, setExpandedSearchProductId] = useState(null);
   const [initialProducts, setInitialProducts] = useState([
     {
       "_id": "67df8377be286a675f7f5d18",
@@ -124,32 +123,57 @@ export default function Dashboard() {
     }
   };
 
-  // Function to handle search
   const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setShowSearchResults(false);
+      setProducts(initialProducts);
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch(`/api/search?query=${searchQuery}`); // Use your search API
+      // Filter products locally based on the search query
+      const filteredProducts = initialProducts.filter(product =>
+        product.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
-      if (!response.ok) {
-        console.error("Search failed:", response.status);
-        setProducts(initialProducts); //Reset to initial products
-        return;
-      }
-
-      const data = await response.json();
-      if (data && data.products) {
-        setProducts(data.products);
-      } else {
-        console.warn("No products found for search query:", searchQuery);
-        setProducts([]); // Set empty array if no results
-      }
+      setSearchResults(filteredProducts);
+      setShowSearchResults(true);
     } catch (error) {
       console.error("Search error:", error);
-      setProducts(initialProducts); //Reset to initial products
+      setAlert("Error during search.");
+      setAlertType("error");
     } finally {
       setLoading(false);
     }
   };
+
+  // Function to toggle search product details
+  const toggleSearchProductDetails = (productId) => {
+    if (expandedSearchProductId === productId) {
+      setExpandedSearchProductId(null);
+    } else {
+      setExpandedSearchProductId(productId);
+    }
+  };
+
+  // Function to close search results dropdown
+  const closeSearchResults = () => {
+    setShowSearchResults(false);
+    setExpandedSearchProductId(null);
+  };
+
+  // Function to select a product from search
+  const selectSearchProduct = (product) => {
+    // Find the product in the main list and scroll to it
+    const index = products.findIndex(p => p._id === product._id);
+    if (index !== -1) {
+      // You could implement scrolling to the product here
+      closeSearchResults();
+    }
+  };
+
 
   // Function to update quantity
   const updateQuantity = async (productId, newQuantity) => {
@@ -275,9 +299,20 @@ export default function Dashboard() {
           <Search className="w-5 h-5" />
         </button>
       </div>
-      <button onClick={handleLogout} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-        Logout
-      </button>
+      <div className="flex space-x-4">
+        <button
+          onClick={() => router.push('/profile')}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          Profile
+        </button>
+        <button
+          onClick={handleLogout}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+        >
+          Logout
+        </button>
+      </div>
     </header>
   );
 
@@ -319,27 +354,17 @@ export default function Dashboard() {
               icon={<Home className="w-5 h-5" />}
               label="Dashboard"
               isOpen={isSidebarOpen}
-              active
+              href="/dashboard"
+              active={router.pathname === "/dashboard"} // Updated to match the actual path
+              router={router}
             />
             <SidebarItem
               icon={<Package className="w-5 h-5" />}
               label="Inventory"
               isOpen={isSidebarOpen}
-            />
-            <SidebarItem
-              icon={<ShoppingCart className="w-5 h-5" />}
-              label="Orders"
-              isOpen={isSidebarOpen}
-            />
-            <SidebarItem
-              icon={<Users className="w-5 h-5" />}
-              label="Customers"
-              isOpen={isSidebarOpen}
-            />
-            <SidebarItem
-              icon={<LineChart className="w-5 h-5" />}
-              label="Analytics"
-              isOpen={isSidebarOpen}
+              href="/inventory"
+              active={router.pathname === "/inventory"}
+              router={router}
             />
           </nav>
 
@@ -357,6 +382,119 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
+
+        {/* Search Results Dropdown */}
+        {showSearchResults && (
+          <div className="relative z-50">
+            <div className="absolute top-0 left-0 right-0 mt-2 mx-6">
+              <div className="bg-white rounded-lg shadow-xl border border-gray-200 max-h-96 overflow-y-auto">
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Search Results ({searchResults.length})
+                  </h3>
+                  <button
+                    onClick={closeSearchResults}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {searchResults.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500">
+                    No products found matching "{searchQuery}"
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {searchResults.map((product) => (
+                      <li key={product._id} className="hover:bg-gray-50">
+                        <div
+                          className="p-4 cursor-pointer"
+                          onClick={() => selectSearchProduct(product)}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{product.productName}</h4>
+                              <p className="text-sm text-gray-500">Category: {product.category}</p>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${product.status === 'In Stock' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {product.status}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSearchProductDetails(product._id);
+                                }}
+                                className="bg-indigo-100 text-indigo-700 p-2 rounded-full hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                              >
+                                {expandedSearchProductId === product._id ? (
+                                  <ChevronUp className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Product Details Dropdown */}
+                          {expandedSearchProductId === product._id && (
+                            <div className="mt-4 pt-4 border-t border-gray-200 animate-fadeIn bg-indigo-50 rounded-lg p-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-500">ID</h4>
+                                  <p className="text-gray-800">{product._id}</p>
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-500">Price</h4>
+                                  <p className="text-gray-800">${product.price}</p>
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-500">Quantity</h4>
+                                  <p className="text-gray-800">{product.quantity}</p>
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-500">Total Value</h4>
+                                  <p className="text-gray-800">${parseInt(product.price) * parseInt(product.quantity)}</p>
+                                </div>
+                              </div>
+                              <div className="mt-4 flex justify-end">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditProduct(product);
+                                    closeSearchResults();
+                                  }}
+                                  className="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 mr-2 text-sm"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteProduct(product._id);
+                                    closeSearchResults();
+                                  }}
+                                  className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {/* Alert Notification */}
         {alert && (
@@ -627,16 +765,23 @@ export default function Dashboard() {
 }
 
 // Sidebar Item Component
-function SidebarItem({ icon, label, isOpen, active = false }) {
+function SidebarItem({ icon, label, isOpen, href, active = false, router }) {
+  const handleClick = () => {
+    if (href) {
+      router.push(href);
+    }
+  };
+
   return (
     <div
+      onClick={handleClick}
       className={`flex items-center p-2 rounded-lg cursor-pointer transition duration-200 
-        ${active ? 'bg-indigo-600 text-indigo-600' : 'hover:bg-gray-100 text-gray-600'}
+        ${active ? 'bg-indigo-600 text-white' : 'hover:bg-gray-100 text-gray-600'}
       `}
     >
-      {icon}
+      <div className={active ? 'text-white' : ''}>{icon}</div>
       {isOpen && (
-        <span className={`ml-3 text-sm font-medium ${active ? 'text-indigo-600' : 'text-gray-700'}`}>
+        <span className={`ml-3 text-sm font-medium ${active ? 'text-white' : 'text-gray-700'}`}>
           {label}
         </span>
       )}
