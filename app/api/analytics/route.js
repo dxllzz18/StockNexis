@@ -1,13 +1,12 @@
 "use client";
+
+import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Title, Tooltip } from 'chart.js';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Bar, Pie } from 'react-chartjs-2';
 
-// Import a charting library if using one (e.g., Chart.js)
-// import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-// import { Pie } from 'react-chartjs-2';
-
-// ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 export default function Analytics() {
     const [user, setUser] = useState(null);
@@ -31,11 +30,11 @@ export default function Analytics() {
         },
         salesByCategory: {
             categories: ["Electronics", "Home Goods", "Apparel", "Accessories"],
-            sales: [45000, 30000, 20000, 15000] // Mock sales data for categories
+            sales: [45000, 30000, 20000, 15000]
         },
         salesBreakdown: {
             categories: ["Online", "In-Store", "Wholesale"],
-            values: [60, 30, 10] // Percentage breakdown of sales channels
+            values: [60, 30, 10]
         }
     });
     const router = useRouter();
@@ -83,43 +82,78 @@ export default function Analytics() {
         router.push("/login");
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
-        );
-    }
-
-    // Function to calculate the SVG path for a pie slice
-    const getPieSlicePath = (index, total) => {
-        const startAngle = 0;
-        const endAngle = 360 * (analyticsData.salesBreakdown.values[index] / 100);
-        const largeArcFlag = endAngle > 180 ? 1 : 0;
-
-        const x1 = Math.cos(Math.PI * startAngle / 180) * 50 + 50;
-        const y1 = Math.sin(Math.PI * startAngle / 180) * 50 + 50;
-        const x2 = Math.cos(Math.PI * endAngle / 180) * 50 + 50;
-        const y2 = Math.sin(Math.PI * endAngle / 180) * 50 + 50;
-
-        return `M50,50 L${x1},${y1} A50,50 0 ${largeArcFlag} 1 ${x2},${y2} Z`;
+    const pieChartData = {
+        labels: analyticsData.salesBreakdown.categories,
+        datasets: [
+            {
+                label: 'Sales Breakdown',
+                data: analyticsData.salesBreakdown.values,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 206, 86, 0.8)',
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(153, 102, 255, 0.8)',
+                    'rgba(255, 159, 64, 0.8)',
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)',
+                    'rgba(255, 159, 64, 1)',
+                ],
+                borderWidth: 1,
+            },
+        ],
     };
 
-    //Sample colors for the graph
-    const pieChartColors = ['#FF6384', '#36A2EB', '#FFCE56'];
+    // Sales By Category
+    const barChartData = {
+        labels: analyticsData.salesByCategory.categories,
+        datasets: [
+            {
+                label: 'Sales by Category',
+                data: analyticsData.salesByCategory.sales,
+                backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1,
+            },
+        ],
+    };
 
-    // Chart.js pie chart data setup (example if using Chart.js)
-    // const pieChartData = {
-    //     labels: analyticsData.salesBreakdown.categories,
-    //     datasets: [
-    //         {
-    //             label: 'Sales Breakdown',
-    //             data: analyticsData.salesBreakdown.values,
-    //             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'], // Example colors
-    //             borderWidth: 0,
-    //         },
-    //     ],
-    // };
+    const barChartOptions = {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            title: {
+                display: true,
+                text: 'Sales by Category',
+            },
+        },
+    };
+
+    const pieChartOptions = {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'right', // Display the legend on the right side
+                labels: {
+                    boxWidth: 20,        // Adjust the width of the color box
+                    font: {
+                        size: 12       // Adjust the font size of the labels
+                    }
+                }
+            },
+            title: {
+                display: true,
+                text: 'Sales Breakdown',
+            },
+        },
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -353,22 +387,8 @@ export default function Analytics() {
                             </div>
 
                             {/* Pie Chart */}
-                            <div className="w-full h-32 flex items-center justify-center">
-                                {/* Basic Pie Chart Implementation using SVG */}
-                                <svg width="100" height="100">
-                                    {analyticsData.salesBreakdown.categories.map((category, index) => (
-                                        <path
-                                            key={index}
-                                            d={getPieSlicePath(index, analyticsData.salesBreakdown.categories.length)}
-                                            fill={pieChartColors[index % pieChartColors.length]} // Use a color from the pieChartColors array
-                                        />
-                                    ))}
-                                </svg>
-
-                                {/* Alternative Chart.js Pie Chart (if using the library) */}
-                                {/* <div className="w-full h-full">
-                                    <Pie data={pieChartData} />
-                                </div> */}
+                            <div className="w-full h-64">
+                                <Pie data={pieChartData} options={pieChartOptions} />
                             </div>
                         </div>
                     </div>
@@ -464,23 +484,9 @@ export default function Analytics() {
                     </div>
                     <div className="p-4 h-64 flex items-center justify-center">
                         {/* This would be replaced with an actual chart component */}
-                        <div className="w-full h-full bg-gray-50 flex items-center justify-center flex-col">
-                            <div className="text-center">
-                                <p className="text-gray-500">Sales by Category Visualization</p>
-                                <p className="text-sm text-gray-400">Bar chart showing sales by product category</p>
-                            </div>
-                            {/* Mock Bar Chart */}
-                            <div className="flex justify-around items-end h-40 w-full">
-                                {analyticsData.salesByCategory.categories.map((category, index) => (
-                                    <div key={index} className="flex flex-col items-center">
-                                        <div
-                                            className="bg-indigo-500"
-                                            style={{ height: `${(analyticsData.salesByCategory.sales[index] / Math.max(...analyticsData.salesByCategory.sales)) * 100}px`, width: '30px' }}
-                                        ></div>
-                                        <span className="text-xs text-gray-600 mt-1">{category}</span>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="w-full h-full flex items-center justify-center flex-col">
+                            {/* Sales by Category Chart */}
+                            <Bar options={barChartOptions} data={barChartData} />
                         </div>
                     </div>
                 </div>
