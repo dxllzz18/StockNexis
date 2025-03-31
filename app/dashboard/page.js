@@ -15,29 +15,19 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from "react";
 
 export default function Dashboard() {
-  const [productForm, setProductForm] = useState({ productName: '', quantity: '', price: '', category: '', status: 'In Stock' }); // ADD IN STOCK INITAL VALUE
+  const [productForm, setProductForm] = useState({ productName: '', quantity: '', price: '', category: '', status: 'In Stock' });
   const [alert, setAlert] = useState("");
-  const [alertType, setAlertType] = useState("success"); // State for alert type ('success' or 'error')
+  const [alertType, setAlertType] = useState("success");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [expandedSearchProductId, setExpandedSearchProductId] = useState(null);
-  const [initialProducts, setInitialProducts] = useState([
-    {
-      "_id": "67df8377be286a675f7f5d18",
-      "productName": "sweater",
-      "quantity": "6",
-      "price": "1000",
-      "category": "clothing",
-      "status": "In Stock"
-    }
-  ]);
+  const [initialProducts, setInitialProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingProductId, setEditingProductId] = useState(null); // State to track the product being edited
+  const [editingProductId, setEditingProductId] = useState(null);
 
   const router = useRouter();
 
@@ -48,7 +38,7 @@ export default function Dashboard() {
 
         if (!response.ok) {
           console.error("Failed to fetch products:", response.status);
-          setProducts(initialProducts);
+          setProducts([]);
           return;
         }
 
@@ -56,15 +46,15 @@ export default function Dashboard() {
 
         if (!data || !data.products || !Array.isArray(data.products)) {
           console.warn("Invalid product data received:", data);
-          setProducts(initialProducts);
+          setProducts([]);
           return;
         }
 
         setProducts(data.products);
-        setInitialProducts(data.products); // Store the initial products
+        setInitialProducts(data.products);
       } catch (error) {
         console.error("Error fetching products:", error);
-        setProducts(initialProducts);
+        setProducts([]);
       } finally {
         setIsLoading(false);
       }
@@ -91,7 +81,7 @@ export default function Dashboard() {
     const { productName, quantity, price, category } = productForm;
     if (!productName || !quantity || !price || !category) {
       setAlert("Please fill all fields");
-      setAlertType("error"); // Set alert type to 'error'
+      setAlertType("error");
       return;
     }
 
@@ -106,20 +96,22 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        const data = await response.json(); //Expect product from backend
+        const data = await response.json();
 
-        setProducts(prev => [...prev, data.product]); // append from backend
+        setProducts(prev => [...prev, data.product]);
+        setInitialProducts(prev => [...prev, data.product]);//Update initial product
         setAlert("Your Product has been added!");
-        setAlertType("success"); // Set alert type to 'success'
-        setProductForm({ productName: '', quantity: '', price: '', category: '', status: 'In Stock' }); // ADDED IN STOCK
+        setAlertType("success");
+        setProductForm({ productName: '', quantity: '', price: '', category: '', status: 'In Stock' });
       } else {
-        setAlert("Error adding product. Please try again.");
-        setAlertType("error"); // Set alert type to 'error'
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));// parse the response body to check if server is returning an error message
+        setAlert(`Error adding product: ${errorData.message}`); //Show error message
+        setAlertType("error");
       }
     } catch (error) {
       console.error('Error:', error);
       setAlert("Error adding product. Please try again.");
-      setAlertType("error"); // Set alert type to 'error'
+      setAlertType("error");
     }
   };
 
@@ -132,7 +124,6 @@ export default function Dashboard() {
 
     setLoading(true);
     try {
-      // Filter products locally based on the search query
       const filteredProducts = initialProducts.filter(product =>
         product.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.category.toLowerCase().includes(searchQuery.toLowerCase())
@@ -149,7 +140,6 @@ export default function Dashboard() {
     }
   };
 
-  // Function to toggle search product details
   const toggleSearchProductDetails = (productId) => {
     if (expandedSearchProductId === productId) {
       setExpandedSearchProductId(null);
@@ -158,78 +148,57 @@ export default function Dashboard() {
     }
   };
 
-  // Function to close search results dropdown
   const closeSearchResults = () => {
     setShowSearchResults(false);
     setExpandedSearchProductId(null);
   };
 
-  // Function to select a product from search
   const selectSearchProduct = (product) => {
-    // Find the product in the main list and scroll to it
     const index = products.findIndex(p => p._id === product._id);
     if (index !== -1) {
-      // You could implement scrolling to the product here
       closeSearchResults();
     }
   };
 
-
-  // Function to update quantity
-  const updateQuantity = async (productId, newQuantity) => {
-    try {
-      const response = await fetch('/api/product/updateQuantity', { // Create a new API route for this
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, quantity: newQuantity }),
-      });
-
-      if (response.ok) {
-        // Update the product in the local state
-        setProducts(prevProducts =>
-          prevProducts.map(product =>
-            product._id === productId ? { ...product, quantity: newQuantity, status: parseInt(newQuantity) > 0 ? "In Stock" : "Out of Stock" } : product
-          )
-        );
-        setAlert("Quantity updated successfully!");
-        setAlertType("success");
-      } else {
-        setAlert("Failed to update quantity.");
-        setAlertType("error");
-        console.error("Failed to update quantity:", response.status);
-      }
-    } catch (error) {
-      setAlert("Error updating quantity.");
-      setAlertType("error");
-      console.error("Error updating quantity:", error);
-    }
-  };
+  //Delete product method
   const deleteProduct = async (productId) => {
-    console.log("Deleting product with ID:", productId); // ADD PRODUCT ID LOG
+    if (!productId) {
+      setAlert("Error: Invalid product ID");
+      setAlertType("error");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this product?")) {
+      return;
+    }
 
     try {
       const response = await fetch(`/api/product/${productId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
-        // Remove the product from the local state
         setProducts(prevProducts => prevProducts.filter(product => product._id !== productId));
+        setInitialProducts(prevProducts => prevProducts.filter(product => product._id !== productId));
+
         setAlert("Product deleted successfully!");
         setAlertType("success");
       } else {
-        setAlert("Failed to delete product.");
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+        setAlert(`Failed to delete product: ${errorData.message}`);
         setAlertType("error");
-        console.error("Failed to delete product:", response.status);
       }
     } catch (error) {
-      setAlert("Error deleting product.");
-      setAlertType("error");
       console.error("Error deleting product:", error);
+      setAlert(`Error deleting product: ${error.message}`);
+      setAlertType("error");
     }
   };
 
-  // Function to handle editing a product
+  // Edit Product
   const handleEditProduct = (product) => {
     setEditingProductId(product._id);
     setProductForm({
@@ -241,46 +210,79 @@ export default function Dashboard() {
     });
   };
 
-  const handleUpdateProduct = async (e) => {
-    e.preventDefault();
-    console.log("Attempting to update product ID:", editingProductId) // ADD productID to log to be sure the correct function is displayed.
+  const handleUpdateProduct = async () => {
+    const productId = editingProductId;
+
+    // Store current product data for potential rollback
+    const originalProducts = [...products];
+    const productIndex = products.findIndex(p => p._id === productId);
+    const originalProduct = products[productIndex];
+
+    if (!originalProduct) {
+      setAlert("Product not found for update.");
+      setAlertType("error");
+      setEditingProductId(null);
+      return;
+    }
+
+    // Optimistically update the UI
+    const updatedProductData = {
+      ...originalProduct,
+      ...productForm,
+      status: parseInt(productForm.quantity) > 0 ? "In Stock" : "Out of Stock"
+    };
+
+    const newProducts = [...products];
+    newProducts[productIndex] = updatedProductData;
+    setProducts(newProducts);
+
+    //update inital products
+    const initalProductIndex = initialProducts.findIndex(p => p._id === productId);
+    const newInitalProducts = [...initialProducts];
+    newInitalProducts[initalProductIndex] = updatedProductData;
+    setInitialProducts(newInitalProducts);
+
+    setEditingProductId(null); // Close the edit form
+
     try {
-      const response = await fetch(`/api/product/${editingProductId}`, {
-        method: 'PUT', // Use PUT method for updates
+      const response = await fetch(`/api/product/${productId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(productForm),
+        body: JSON.stringify({
+          ...productForm,
+          status: parseInt(productForm.quantity) > 0 ? "In Stock" : "Out of Stock"
+        })
       });
 
       if (response.ok) {
-        const data = await response.json();  // Expecting the updated product from backend
-        // Update the product in the local state
-        setProducts(prevProducts =>
-          prevProducts.map(product =>
-            product._id === editingProductId ? data.product : product // Replace with updated product from the backend
-          )
-        );
+        const updatedProduct = await response.json();
         setAlert("Product updated successfully!");
         setAlertType("success");
-        setEditingProductId(null);  // Clear editing state
-        setProductForm({ productName: '', quantity: '', price: '', category: '', status: 'In Stock' }); //Reset Form
-
-        router.refresh();
       } else {
-        setAlert("Failed to update product.");
+        // Revert the UI update if the backend failed
+        setProducts(originalProducts);
+        setInitialProducts(initialProducts); // Revert initial products as well
+
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+        setAlert(`Failed to update product: ${errorData.message}`);
         setAlertType("error");
         console.error("Failed to update product:", response.status);
       }
     } catch (error) {
+      // Revert the UI update if there was a network error
+      setProducts(originalProducts);
+      setInitialProducts(initialProducts); // Revert initial products as well
+
       setAlert("Error updating product.");
       setAlertType("error");
       console.error("Error updating product:", error);
+    } finally {
+      setProductForm({ productName: '', quantity: '', price: '', category: '', status: 'In Stock' }); // Reset form
     }
   };
-  const handleLogout = () => {
-    // Clear local storage (where the dummy auth might be kept)
-    localStorage.removeItem('yourAuthTokenKey');
 
-    // Redirect to the login page after logging out
+  const handleLogout = () => {
+    localStorage.removeItem('yourAuthTokenKey');
     router.push('/login');
   };
 
@@ -293,7 +295,7 @@ export default function Dashboard() {
           className="border border-gray-300 rounded-md px-3 py-2 w-64 mr-4"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }} // Trigger search on Enter
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
         />
         <button onClick={handleSearch} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <Search className="w-5 h-5" />
@@ -355,7 +357,7 @@ export default function Dashboard() {
               label="Dashboard"
               isOpen={isSidebarOpen}
               href="/dashboard"
-              active={router.pathname === "/dashboard"} // Updated to match the actual path
+              active={router.pathname === "/dashboard"}
               router={router}
             />
             <SidebarItem
@@ -420,7 +422,7 @@ export default function Dashboard() {
                               <p className="text-sm text-gray-500">Category: {product.category}</p>
                             </div>
                             <div className="flex items-center space-x-4">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
                                 ${product.status === 'In Stock' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 {product.status}
                               </span>
@@ -494,7 +496,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
 
         {/* Alert Notification */}
         {alert && (
@@ -648,7 +649,6 @@ export default function Dashboard() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {products.map((product) => (
                     editingProductId === product._id ? (
-                      //Edit Form
                       <tr key={product._id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           <input
@@ -717,7 +717,6 @@ export default function Dashboard() {
                         </td>
                       </tr>
                     ) : (
-                      //Product listing
                       <tr key={product._id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {product.productName}
@@ -732,21 +731,22 @@ export default function Dashboard() {
                           {product.category}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                               ${product.status === 'In Stock' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                             {product.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
-                            onClick={() => handleEditProduct(product)}
+                            onClick={() =>
+                              handleEditProduct(product)}
                             className="bg-indigo-400 text-white px-4 py-2 rounded-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                           >
                             <Edit className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => deleteProduct(product._id)}
-                            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 ml-2"
+                            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                           >
                             Delete
                           </button>
@@ -764,7 +764,6 @@ export default function Dashboard() {
   );
 }
 
-// Sidebar Item Component
 function SidebarItem({ icon, label, isOpen, href, active = false, router }) {
   const handleClick = () => {
     if (href) {
@@ -775,7 +774,7 @@ function SidebarItem({ icon, label, isOpen, href, active = false, router }) {
   return (
     <div
       onClick={handleClick}
-      className={`flex items-center p-2 rounded-lg cursor-pointer transition duration-200 
+      className={`flex items-center p-2 rounded-lg cursor-pointer transition duration-200
         ${active ? 'bg-indigo-600 text-white' : 'hover:bg-gray-100 text-gray-600'}
       `}
     >
